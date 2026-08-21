@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduTeach Textbook Browser</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="card">
+    <h1>Find a textbook</h1>
+    <p class="sub">Select your board, grade, and subject to see if it's already available.</p>
+
+    <form id="selectorForm">
+      <div class="grid">
+        <div class="field">
+          <label for="grade">GRADE</label>
+          <select id="grade" required>
+            <option value="" disabled selected>Select grade...</option>
+            <option>Grade 1</option>
+            <option>Grade 2</option>
+            <option>Grade 3</option>
+            <option>Grade 4</option>
+            <option>Grade 5</option>
+            <option>Grade 6</option>
+            <option>Grade 7</option>
+            <option>Grade 8</option>
+            <option>Grade 9</option>
+            <option>Grade 10</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="subject">SUBJECT</label>
+          <select id="subject" required>
+            <option value="" disabled selected>Select subject...</option>
+            <option>English</option>
+            <option>Maths</option>
+            <option>Environmental Studies</option>
+            <option>Science</option>
+            <option>Social Studies</option>
+            <option>Telugu</option>
+            <option>Hindi</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="board">BOARD</label>
+          <select id="board" required>
+            <option value="" disabled selected>Select board...</option>
+            <option>CBSE</option>
+            <option>ICSE</option>
+            <option>SSC (State Board)</option>
+            <option value="__other__">Other (custom)...</option>
+          </select>
+        </div>
+
+        <div class="field" id="stateField" hidden>
+          <label for="state">STATE</label>
+          <select id="state">
+            <option value="" disabled selected>Select state...</option>
+            <option>Telangana</option>
+            <option>Andhra Pradesh</option>
+            <option>Karnataka</option>
+            <option>Tamil Nadu</option>
+            <option>Maharashtra</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div class="field" id="customBoardField" hidden>
+          <label for="customBoard">BOARD NAME</label>
+          <input type="text" id="customBoard" placeholder="e.g. Karnataka State Board">
+        </div>
+      </div>
+
+      <button type="submit" class="submit">Find textbook</button>
+    </form>
+
+    <div id="result" class="result" hidden></div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
