@@ -57,6 +57,38 @@ function showResult(html, cls) {
   resultBox.innerHTML = html;
 }
 
+// Shown on page load so a visitor isn't guessing blindly at the form --
+// fetched live, not hardcoded, so it never goes stale as more books get published.
+async function loadAvailableNow() {
+  const box = document.getElementById("availableNow");
+  const list = document.getElementById("availableList");
+  box.hidden = false;
+  box.className = "available loading";
+  list.innerHTML = "<li>Loading current textbook list...</li>";
+
+  try {
+    const resp = await fetch(`${API_BASE}/published/books`);
+    if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+    const books = await resp.json();
+
+    if (books.length === 0) {
+      box.className = "available";
+      list.innerHTML = "<li>Nothing published yet.</li>";
+      return;
+    }
+
+    box.className = "available";
+    list.innerHTML = books
+      .map((b) => `<li>${b.board}, Grade ${b.grade} &mdash; ${b.subject} (${b.chapter_count} chapter${b.chapter_count === 1 ? "" : "s"})</li>`)
+      .join("");
+  } catch (err) {
+    box.className = "available error";
+    list.innerHTML = `<li>Couldn't load the current list (${err.message}). You can still try the form below.</li>`;
+  }
+}
+
+loadAvailableNow();
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 

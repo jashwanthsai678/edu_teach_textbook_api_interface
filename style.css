@@ -48,6 +48,36 @@ h1 {
   font-size: .95rem;
 }
 
+.available {
+  margin-bottom: 1.6rem;
+  padding: .9rem 1.1rem;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  border: 1px solid #dbe1fa;
+}
+
+.available-label {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.available ul {
+  margin: .5rem 0 0;
+  padding-left: 1.2rem;
+  font-size: .9rem;
+  color: var(--ink);
+}
+
+.available li { margin-bottom: .2rem; }
+
+.available.loading, .available.error {
+  background: var(--field-bg);
+  border-color: var(--border);
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
