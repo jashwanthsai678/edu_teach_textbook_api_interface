@@ -83,6 +83,13 @@
     </form>
 
     <div id="result" class="result" hidden></div>
+
+    <div id="uploadSection" class="upload" hidden>
+      <span class="upload-label">Upload this textbook</span>
+      <p class="upload-hint">This will process the PDF and publish it -- usually takes around 20 minutes for a full book.</p>
+      <input type="file" id="pdfFile" accept="application/pdf">
+      <button type="button" id="uploadBtn" class="submit secondary">Upload &amp; process</button>
+    </div>
   </main>
 
   <script src="app.js"></script>

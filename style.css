@@ -163,6 +163,46 @@ select {
   color: var(--ink-soft);
 }
 
+.upload {
+  margin-top: 1.2rem;
+  padding: 1rem 1.2rem;
+  border-radius: 14px;
+  background: var(--field-bg);
+  border: 1px dashed var(--border);
+}
+
+.upload-label {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+
+.upload-hint {
+  margin: .4rem 0 .8rem;
+  font-size: .88rem;
+  color: var(--ink-soft);
+}
+
+.upload input[type="file"] {
+  display: block;
+  width: 100%;
+  margin-bottom: .8rem;
+  font-size: .88rem;
+}
+
+.submit.secondary {
+  background: var(--accent);
+}
+
+.submit.secondary:hover { background: #24409e; }
+
+.submit:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
 .result a {
   color: inherit;
   text-decoration: underline;

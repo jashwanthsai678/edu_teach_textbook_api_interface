@@ -1,4 +1,10 @@
 const API_BASE = "https://eduteach-textbook-api.onrender.com";
+// TODO: update this once eduteach-ingest-service is deployed on Render.
+const INGEST_API_BASE = "https://eduteach-ingest-service.onrender.com";
+// Only one school exists in Supabase right now ("Admin Test School") --
+// hardcoded until a real school-selection/auth flow exists.
+const SCHOOL_ID = "04b5b4aa-37cc-4790-955e-e995da9b80c7";
+const POLL_INTERVAL_MS = 8000;
 
 const boardSelect = document.getElementById("board");
 const stateField = document.getElementById("stateField");
@@ -41,6 +47,24 @@ function resolveBoardQuery() {
   return { display: board, aliases: [board.toLowerCase()] };
 }
 
+// Opposite direction from STATE_BOARD_ALIASES: what board string to actually
+// SEND when uploading a new book, so newly-published books use the same
+// naming convention as the existing ones (e.g. "TS SCERT").
+const STATE_TO_BOARD_STRING = {
+  "Telangana": "TS SCERT",
+  "Andhra Pradesh": "AP SCERT",
+  "Karnataka": "Karnataka SCERT",
+  "Tamil Nadu": "TN SCERT",
+  "Maharashtra": "Maharashtra SCERT",
+};
+
+function resolveBoardForUpload() {
+  const board = boardSelect.value;
+  if (board === "__other__") return customBoardInput.value.trim();
+  if (board === "SSC (State Board)") return STATE_TO_BOARD_STRING[stateSelect.value] || `${stateSelect.value} SCERT`;
+  return board; // CBSE / ICSE
+}
+
 function boardMatches(storedBoard, aliases) {
   const stored = (storedBoard || "").toLowerCase();
   return aliases.some((a) => a && (stored.includes(a) || a.includes(stored)));
@@ -51,10 +75,19 @@ function gradeNumber(label) {
   return m ? m[0] : null;
 }
 
+const uploadSection = document.getElementById("uploadSection");
+const uploadBtn = document.getElementById("uploadBtn");
+const pdfFileInput = document.getElementById("pdfFile");
+
+// Set right before showing a "notfound" result, so the upload handler
+// knows what metadata to publish the new book under.
+let pendingUpload = null;
+
 function showResult(html, cls) {
   resultBox.hidden = false;
   resultBox.className = `result ${cls}`;
   resultBox.innerHTML = html;
+  if (cls !== "notfound") uploadSection.hidden = true;
 }
 
 // Shown on page load so a visitor isn't guessing blindly at the form --
@@ -133,8 +166,72 @@ form.addEventListener("submit", async (e) => {
         `This combination hasn't been processed and published yet.`,
         "notfound"
       );
+      pendingUpload = { grade, subject, board: resolveBoardForUpload() };
+      uploadSection.hidden = false;
     }
   } catch (err) {
     showResult(`Something went wrong reaching the textbook service: ${err.message}`, "error");
+  }
+});
+
+async function pollJob(jobId) {
+  while (true) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    let job;
+    try {
+      const resp = await fetch(`${INGEST_API_BASE}/jobs/${jobId}`);
+      if (!resp.ok) throw new Error(`status check returned ${resp.status}`);
+      job = await resp.json();
+    } catch (err) {
+      showResult(`Lost track of the job while processing (${err.message}). It may still be running -- try again in a few minutes.`, "error");
+      return;
+    }
+
+    if (job.status === "done") {
+      const chaptersUrl = `${API_BASE}/published/books/${job.book_id}/chapters`;
+      showResult(
+        `<strong>Done!</strong> Published ${job.chapter_count} chapter(s).<br>` +
+        `<a href="${chaptersUrl}" target="_blank" rel="noopener">View chapters &rarr;</a>`,
+        "found"
+      );
+      return;
+    }
+    if (job.status === "failed") {
+      showResult(`Processing failed: ${job.reason || "unknown error"}`, "error");
+      return;
+    }
+    showResult(`Processing... (${job.stage || "starting"}${job.detail ? " -- " + job.detail : ""})<br>This can take up to ~20 minutes for a full book.`, "loading");
+  }
+}
+
+uploadBtn.addEventListener("click", async () => {
+  const file = pdfFileInput.files[0];
+  if (!file) {
+    showResult("Please choose a PDF file first.", "error");
+    return;
+  }
+  if (!pendingUpload) return;
+
+  uploadBtn.disabled = true;
+  showResult("Uploading... (the ingest service may take up to 30s to wake up if it's been idle)", "loading");
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("board", pendingUpload.board);
+  formData.append("grade", pendingUpload.grade);
+  formData.append("subject", pendingUpload.subject);
+  formData.append("language", "en");
+  formData.append("school_id", SCHOOL_ID);
+
+  try {
+    const resp = await fetch(`${INGEST_API_BASE}/jobs`, { method: "POST", body: formData });
+    if (!resp.ok) throw new Error(`upload returned ${resp.status}`);
+    const { job_id } = await resp.json();
+    showResult("Upload received, processing started...", "loading");
+    await pollJob(job_id);
+  } catch (err) {
+    showResult(`Upload failed: ${err.message}`, "error");
+  } finally {
+    uploadBtn.disabled = false;
   }
 });
