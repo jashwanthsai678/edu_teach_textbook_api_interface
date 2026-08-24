@@ -111,8 +111,17 @@ async function loadAvailableNow() {
     }
 
     box.className = "available";
-    list.innerHTML = books
-      .map((b) => `<li>${b.board}, Grade ${b.grade} &mdash; ${b.subject} (${b.chapter_count} chapter${b.chapter_count === 1 ? "" : "s"})</li>`)
+    const introLine = `<li class="api-intro">Every book below is reachable directly via the REST API: <code>GET ${API_BASE}/published/books/{book_id}/chapters</code></li>`;
+    list.innerHTML = introLine + books
+      .map((b) => {
+        const chaptersUrl = `${API_BASE}/published/books/${b.book_id}/chapters`;
+        const chapter1Url = `${chaptersUrl}/1`;
+        return `<li>
+          ${b.board}, Grade ${b.grade} &mdash; ${b.subject} (${b.chapter_count} chapter${b.chapter_count === 1 ? "" : "s"})<br>
+          <span class="endpoint-line">book_id: <code>${b.book_id}</code></span><br>
+          <span class="endpoint-line"><a href="${chaptersUrl}" target="_blank" rel="noopener">chapters list &rarr;</a> &middot; <a href="${chapter1Url}" target="_blank" rel="noopener">example: chapter 1 &rarr;</a></span>
+        </li>`;
+      })
       .join("");
   } catch (err) {
     box.className = "available error";

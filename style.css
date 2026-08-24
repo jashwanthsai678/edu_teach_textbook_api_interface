@@ -71,7 +71,34 @@ h1 {
   color: var(--ink);
 }
 
-.available li { margin-bottom: .2rem; }
+.available li { margin-bottom: .7rem; }
+
+.available li.api-intro {
+  margin-bottom: 1rem;
+  padding-bottom: .7rem;
+  border-bottom: 1px dashed #c9cde8;
+  color: var(--ink-soft);
+}
+
+.available code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .8rem;
+  background: rgba(0,0,0,0.05);
+  padding: .1rem .35rem;
+  border-radius: 5px;
+}
+
+.available .endpoint-line {
+  font-size: .82rem;
+  color: var(--ink-soft);
+}
+
+.available .endpoint-line a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.available .endpoint-line a:hover { text-decoration: underline; }
 
 .available.loading, .available.error {
   background: var(--field-bg);
