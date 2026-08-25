@@ -93,6 +93,102 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// Full unfiltered list from the last successful fetch -- filtering (below)
+// works off this in memory rather than re-fetching per filter change.
+let allBooks = [];
+
+const filterToggle = document.getElementById("filterToggle");
+const filterBar = document.getElementById("filterBar");
+const filterBoard = document.getElementById("filterBoard");
+const filterGrade = document.getElementById("filterGrade");
+const filterSubject = document.getElementById("filterSubject");
+const filterStatus = document.getElementById("filterStatus");
+
+filterToggle.addEventListener("click", () => {
+  const willShow = filterBar.hidden;
+  filterBar.hidden = !willShow;
+  filterToggle.classList.toggle("active", willShow);
+  filterToggle.setAttribute("aria-expanded", String(willShow));
+});
+
+// Rebuilds each dropdown's option list from whatever boards/grades/subjects
+// actually appear in the current data -- never hardcoded, so it can't drift
+// out of sync as new boards or grades get published.
+function populateFilterOptions(books) {
+  const fill = (select, values) => {
+    const current = select.value;
+    const placeholder = select.querySelector("option[value='']");
+    select.innerHTML = "";
+    if (placeholder) select.appendChild(placeholder);
+    [...new Set(values)].sort().forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+    if ([...select.options].some((o) => o.value === current)) select.value = current;
+  };
+  fill(filterBoard, books.map((b) => b.board));
+  fill(filterGrade, books.map((b) => String(b.grade)));
+  fill(filterSubject, books.map((b) => b.subject));
+}
+
+function bookStatus(b) {
+  const total = b.total_chapters ?? b.chapter_count ?? 0;
+  const published = b.chapters_published ?? total;
+  return { total, published, complete: published >= total && total > 0 };
+}
+
+function applyFilters(books) {
+  return books.filter((b) => {
+    if (filterBoard.value && b.board !== filterBoard.value) return false;
+    if (filterGrade.value && String(b.grade) !== filterGrade.value) return false;
+    if (filterSubject.value && b.subject !== filterSubject.value) return false;
+    if (filterStatus.value) {
+      const { complete } = bookStatus(b);
+      if (filterStatus.value === "complete" && !complete) return false;
+      if (filterStatus.value === "partial" && complete) return false;
+    }
+    return true;
+  });
+}
+
+function renderBooks(books) {
+  const box = document.getElementById("availableNow");
+  if (books.length === 0) {
+    box.className = "library-list empty-filtered";
+    box.innerHTML = "No books match these filters.";
+    return;
+  }
+  box.className = "library-list";
+  box.innerHTML = books.map((b) => {
+    const { total, published, complete } = bookStatus(b);
+    const chaptersUrl = `${API_BASE}/published/books/${b.book_id}/chapters`;
+    const chapter1Url = `${chaptersUrl}/1`;
+    const statusHtml = complete
+      ? `<span class="status-pill complete">Complete &middot; ${published} ch.</span>`
+      : `<span class="status-pill partial">In progress &middot; ${published}/${total} ch.</span>`;
+    return `
+      <div class="book-card">
+        <div class="book-card-top">
+          <div>
+            <div class="book-title">${escapeHtml(b.subject)}, ${escapeHtml(b.board)} &mdash; Grade ${escapeHtml(b.grade)}</div>
+            <div class="book-meta mono">${escapeHtml(b.book_id)}</div>
+          </div>
+          ${statusHtml}
+        </div>
+        <div class="book-links">
+          <a href="${chaptersUrl}" target="_blank" rel="noopener">Chapters list &rarr;</a>
+          <a href="${chapter1Url}" target="_blank" rel="noopener">Example: chapter 1 &rarr;</a>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+[filterBoard, filterGrade, filterSubject, filterStatus].forEach((el) =>
+  el.addEventListener("change", () => renderBooks(applyFilters(allBooks)))
+);
+
 // Shown on page load so a visitor isn't guessing blindly at the form --
 // fetched live, not hardcoded, so it never goes stale as more books get published.
 // total_chapters/chapters_published are reported separately by the API: a book
@@ -108,39 +204,18 @@ async function loadAvailableNow() {
   try {
     const resp = await fetch(`${API_BASE}/published/books`);
     if (!resp.ok) throw new Error(`API returned ${resp.status}`);
-    const books = await resp.json();
+    allBooks = await resp.json();
 
-    if (books.length === 0) {
+    if (allBooks.length === 0) {
       box.className = "library-list";
       box.innerHTML = `<div class="book-card">Nothing published yet.</div>`;
+      filterToggle.hidden = true;
       return;
     }
 
-    box.className = "library-list";
-    box.innerHTML = books.map((b) => {
-      const total = b.total_chapters ?? b.chapter_count ?? 0;
-      const published = b.chapters_published ?? total;
-      const isComplete = published >= total && total > 0;
-      const chaptersUrl = `${API_BASE}/published/books/${b.book_id}/chapters`;
-      const chapter1Url = `${chaptersUrl}/1`;
-      const statusHtml = isComplete
-        ? `<span class="status-pill complete">Complete &middot; ${published} ch.</span>`
-        : `<span class="status-pill partial">In progress &middot; ${published}/${total} ch.</span>`;
-      return `
-        <div class="book-card">
-          <div class="book-card-top">
-            <div>
-              <div class="book-title">${escapeHtml(b.subject)}, ${escapeHtml(b.board)} &mdash; Grade ${escapeHtml(b.grade)}</div>
-              <div class="book-meta mono">${escapeHtml(b.book_id)}</div>
-            </div>
-            ${statusHtml}
-          </div>
-          <div class="book-links">
-            <a href="${chaptersUrl}" target="_blank" rel="noopener">Chapters list &rarr;</a>
-            <a href="${chapter1Url}" target="_blank" rel="noopener">Example: chapter 1 &rarr;</a>
-          </div>
-        </div>`;
-    }).join("");
+    filterToggle.hidden = false;
+    populateFilterOptions(allBooks);
+    renderBooks(applyFilters(allBooks));
   } catch (err) {
     box.className = "library-list error";
     box.innerHTML = `Couldn't load the current list (${escapeHtml(err.message)}). You can still try the form.`;

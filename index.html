@@ -107,10 +107,27 @@
       </section>
 
       <section class="panel library-panel">
-        <div class="panel-head">
-          <h2>Library</h2>
-          <p class="panel-sub">Every book listed here is reachable directly via the REST API.</p>
+        <div class="panel-head library-head">
+          <div>
+            <h2>Library</h2>
+            <p class="panel-sub">Every book listed here is reachable directly via the REST API.</p>
+          </div>
+          <button type="button" id="filterToggle" class="icon-btn" aria-label="Filter books" aria-expanded="false" hidden>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          </button>
         </div>
+
+        <div id="filterBar" class="filter-bar" hidden>
+          <select id="filterBoard"><option value="">All boards</option></select>
+          <select id="filterGrade"><option value="">All grades</option></select>
+          <select id="filterSubject"><option value="">All subjects</option></select>
+          <select id="filterStatus">
+            <option value="">All statuses</option>
+            <option value="complete">Complete</option>
+            <option value="partial">In progress</option>
+          </select>
+        </div>
+
         <div id="availableNow" class="library-list" hidden></div>
       </section>
     </main>

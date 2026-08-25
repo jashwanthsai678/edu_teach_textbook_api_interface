@@ -239,7 +239,58 @@ select {
 }
 
 /* ---- library panel ---- */
+.library-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.icon-btn {
+  flex-shrink: 0;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 9px;
+  border: 1.5px solid var(--border);
+  background: var(--field-bg);
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.icon-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+.icon-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.filter-bar select {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+  padding-right: 1.9rem;
+  background-position: right 0.6rem center;
+  background-size: 0.85rem;
+}
+@media (max-width: 560px) {
+  .filter-bar { grid-template-columns: 1fr 1fr; }
+}
+
 .library-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.library-list.empty-filtered {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  padding: 0.9rem;
+  background: var(--field-bg);
+  border-radius: 10px;
+  text-align: center;
+}
 .library-list.loading, .library-list.error {
   color: var(--ink-soft);
   font-size: 0.88rem;
