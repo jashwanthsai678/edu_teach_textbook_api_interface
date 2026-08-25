@@ -1,5 +1,4 @@
 const API_BASE = "https://eduteach-textbook-api.onrender.com";
-// TODO: update this once eduteach-ingest-service is deployed on Render.
 const INGEST_API_BASE = "https://eduteach-ingest-service.onrender.com";
 // Only one school exists in Supabase right now ("Admin Test School") --
 // hardcoded until a real school-selection/auth flow exists.
@@ -79,13 +78,6 @@ const uploadSection = document.getElementById("uploadSection");
 const uploadBtn = document.getElementById("uploadBtn");
 const pdfFileInput = document.getElementById("pdfFile");
 
-// TEMPORARY, testing-only: lets a running job be stopped mid-book to verify
-// already-published chapters survive a partial run instead of waiting for a
-// real crash. Remove stopBtn's wiring below (and the button in index.html)
-// once that's confirmed.
-const stopBtn = document.getElementById("stopBtn");
-let currentJobId = null;
-
 // Set right before showing a "notfound" result, so the upload handler
 // knows what metadata to publish the new book under.
 let pendingUpload = null;
@@ -97,14 +89,21 @@ function showResult(html, cls) {
   if (cls !== "notfound") uploadSection.hidden = true;
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 // Shown on page load so a visitor isn't guessing blindly at the form --
 // fetched live, not hardcoded, so it never goes stale as more books get published.
+// total_chapters/chapters_published are reported separately by the API: a book
+// that's still mid-ingestion (or was stopped partway through) genuinely has
+// fewer real chapters than the total detected in its PDF, and this is shown
+// honestly rather than presented as if the book were already complete.
 async function loadAvailableNow() {
   const box = document.getElementById("availableNow");
-  const list = document.getElementById("availableList");
   box.hidden = false;
-  box.className = "available loading";
-  list.innerHTML = "<li>Loading current textbook list...</li>";
+  box.className = "library-list loading";
+  box.innerHTML = "Loading current textbook list&hellip;";
 
   try {
     const resp = await fetch(`${API_BASE}/published/books`);
@@ -112,27 +111,39 @@ async function loadAvailableNow() {
     const books = await resp.json();
 
     if (books.length === 0) {
-      box.className = "available";
-      list.innerHTML = "<li>Nothing published yet.</li>";
+      box.className = "library-list";
+      box.innerHTML = `<div class="book-card">Nothing published yet.</div>`;
       return;
     }
 
-    box.className = "available";
-    const introLine = `<li class="api-intro">Every book below is reachable directly via the REST API: <code>GET ${API_BASE}/published/books/{book_id}/chapters</code></li>`;
-    list.innerHTML = introLine + books
-      .map((b) => {
-        const chaptersUrl = `${API_BASE}/published/books/${b.book_id}/chapters`;
-        const chapter1Url = `${chaptersUrl}/1`;
-        return `<li>
-          ${b.board}, Grade ${b.grade} &mdash; ${b.subject} (${b.chapter_count} chapter${b.chapter_count === 1 ? "" : "s"})<br>
-          <span class="endpoint-line">book_id: <code>${b.book_id}</code></span><br>
-          <span class="endpoint-line"><a href="${chaptersUrl}" target="_blank" rel="noopener">chapters list &rarr;</a> &middot; <a href="${chapter1Url}" target="_blank" rel="noopener">example: chapter 1 &rarr;</a></span>
-        </li>`;
-      })
-      .join("");
+    box.className = "library-list";
+    box.innerHTML = books.map((b) => {
+      const total = b.total_chapters ?? b.chapter_count ?? 0;
+      const published = b.chapters_published ?? total;
+      const isComplete = published >= total && total > 0;
+      const chaptersUrl = `${API_BASE}/published/books/${b.book_id}/chapters`;
+      const chapter1Url = `${chaptersUrl}/1`;
+      const statusHtml = isComplete
+        ? `<span class="status-pill complete">Complete &middot; ${published} ch.</span>`
+        : `<span class="status-pill partial">In progress &middot; ${published}/${total} ch.</span>`;
+      return `
+        <div class="book-card">
+          <div class="book-card-top">
+            <div>
+              <div class="book-title">${escapeHtml(b.subject)}, ${escapeHtml(b.board)} &mdash; Grade ${escapeHtml(b.grade)}</div>
+              <div class="book-meta mono">${escapeHtml(b.book_id)}</div>
+            </div>
+            ${statusHtml}
+          </div>
+          <div class="book-links">
+            <a href="${chaptersUrl}" target="_blank" rel="noopener">Chapters list &rarr;</a>
+            <a href="${chapter1Url}" target="_blank" rel="noopener">Example: chapter 1 &rarr;</a>
+          </div>
+        </div>`;
+    }).join("");
   } catch (err) {
-    box.className = "available error";
-    list.innerHTML = `<li>Couldn't load the current list (${err.message}). You can still try the form below.</li>`;
+    box.className = "library-list error";
+    box.innerHTML = `Couldn't load the current list (${escapeHtml(err.message)}). You can still try the form.`;
   }
 }
 
@@ -154,7 +165,7 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  showResult("Looking this up... (the API may take up to 30s to wake up if it's been idle)", "loading");
+  showResult("Looking this up&hellip; (the API may take up to 30s to wake up if it's been idle)", "loading");
 
   try {
     const resp = await fetch(`${API_BASE}/published/books`);
@@ -169,16 +180,21 @@ form.addEventListener("submit", async (e) => {
     );
 
     if (match) {
+      const total = match.total_chapters ?? match.chapter_count ?? 0;
+      const published = match.chapters_published ?? total;
       const chaptersUrl = `${API_BASE}/published/books/${match.book_id}/chapters`;
+      const statusLine = published >= total && total > 0
+        ? `${published} chapter(s) published.`
+        : `${published} of ${total} chapter(s) published so far &mdash; still being processed.`;
       showResult(
-        `<strong>Found:</strong> ${match.subject}, Grade ${match.grade} (${match.board})<br>` +
-        `${match.chapter_count} chapter(s) published.<br>` +
+        `<strong>Found:</strong> ${escapeHtml(match.subject)}, Grade ${escapeHtml(match.grade)} (${escapeHtml(match.board)})<br>` +
+        `${statusLine}<br>` +
         `<a href="${chaptersUrl}" target="_blank" rel="noopener">View chapters &rarr;</a>`,
         "found"
       );
     } else {
       showResult(
-        `No textbook found yet for <strong>${gradeLabel}, ${subject}, ${boardQuery.display}</strong>.<br>` +
+        `No textbook found yet for <strong>${escapeHtml(gradeLabel)}, ${escapeHtml(subject)}, ${escapeHtml(boardQuery.display)}</strong>.<br>` +
         `This combination hasn't been processed and published yet.`,
         "notfound"
       );
@@ -191,9 +207,6 @@ form.addEventListener("submit", async (e) => {
 });
 
 async function pollJob(jobId) {
-  currentJobId = jobId;
-  stopBtn.hidden = false; // TEMPORARY, testing-only
-
   while (true) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     let job;
@@ -203,7 +216,6 @@ async function pollJob(jobId) {
       job = await resp.json();
     } catch (err) {
       showResult(`Lost track of the job while processing (${err.message}). It may still be running -- try again in a few minutes.`, "error");
-      stopBtn.hidden = true; // TEMPORARY, testing-only
       return;
     }
 
@@ -214,46 +226,18 @@ async function pollJob(jobId) {
         `<a href="${chaptersUrl}" target="_blank" rel="noopener">View chapters &rarr;</a>`,
         "found"
       );
-      stopBtn.hidden = true; // TEMPORARY, testing-only
+      loadAvailableNow();
       return;
     }
     if (job.status === "failed") {
-      showResult(`Processing failed: ${job.reason || "unknown error"}`, "error");
-      stopBtn.hidden = true; // TEMPORARY, testing-only
+      const savedNote = job.chapter_count ? ` ${job.chapter_count} chapter(s) had already been published before this happened -- they're safe.` : "";
+      showResult(`Processing failed: ${job.reason || "unknown error"}.${savedNote}`, "error");
+      loadAvailableNow();
       return;
     }
-    // TEMPORARY, testing-only: a "stopped" status only exists while the stop-button
-    // feature is in place -- remove this branch along with everything else marked
-    // TEMPORARY once that's removed.
-    if (job.status === "stopped") {
-      const chaptersUrl = `${API_BASE}/published/books/${job.book_id}/chapters`;
-      showResult(
-        `<strong>Stopped.</strong> ${job.chapter_count || 0} chapter(s) were published before the stop -- ` +
-        `check that they're really in Supabase.<br>` +
-        (job.book_id ? `<a href="${chaptersUrl}" target="_blank" rel="noopener">View chapters &rarr;</a>` : ""),
-        "found"
-      );
-      stopBtn.hidden = true;
-      return;
-    }
-    showResult(`Processing... (${job.stage || "starting"}${job.detail ? " -- " + job.detail : ""})<br>This can take up to ~20 minutes for a full book.`, "loading");
+    showResult(`Processing&hellip; (${job.stage || "starting"}${job.detail ? " -- " + job.detail : ""})<br>This can take up to ~20 minutes for a full book.`, "loading");
   }
 }
-
-// TEMPORARY, testing-only: remove this whole listener (and stopBtn) once the
-// incremental-publish fix is confirmed working via a deliberate mid-run stop.
-stopBtn.addEventListener("click", async () => {
-  if (!currentJobId) return;
-  stopBtn.disabled = true;
-  try {
-    const resp = await fetch(`${INGEST_API_BASE}/jobs/${currentJobId}/stop`, { method: "POST" });
-    if (!resp.ok) throw new Error(`stop request returned ${resp.status}`);
-  } catch (err) {
-    alert(`Couldn't send stop request: ${err.message}`);
-  } finally {
-    stopBtn.disabled = false;
-  }
-});
 
 uploadBtn.addEventListener("click", async () => {
   const file = pdfFileInput.files[0];
@@ -264,7 +248,7 @@ uploadBtn.addEventListener("click", async () => {
   if (!pendingUpload) return;
 
   uploadBtn.disabled = true;
-  showResult("Uploading... (the ingest service may take up to 30s to wake up if it's been idle)", "loading");
+  showResult("Uploading&hellip; (the ingest service may take up to 30s to wake up if it's been idle)", "loading");
 
   const formData = new FormData();
   formData.append("file", file);
@@ -278,7 +262,7 @@ uploadBtn.addEventListener("click", async () => {
     const resp = await fetch(`${INGEST_API_BASE}/jobs`, { method: "POST", body: formData });
     if (!resp.ok) throw new Error(`upload returned ${resp.status}`);
     const { job_id } = await resp.json();
-    showResult("Upload received, processing started...", "loading");
+    showResult("Upload received, processing started&hellip;", "loading");
     await pollJob(job_id);
   } catch (err) {
     showResult(`Upload failed: ${err.message}`, "error");

@@ -4,98 +4,122 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EduTeach Textbook Browser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="card">
-    <h1>Find a textbook</h1>
-    <p class="sub">Select your board, grade, and subject to see if it's already available.</p>
-
-    <div id="availableNow" class="available" hidden>
-      <span class="available-label">Currently available</span>
-      <ul id="availableList"></ul>
-    </div>
-
-    <form id="selectorForm">
-      <div class="grid">
-        <div class="field">
-          <label for="grade">GRADE</label>
-          <select id="grade" required>
-            <option value="" disabled selected>Select grade...</option>
-            <option>Grade 1</option>
-            <option>Grade 2</option>
-            <option>Grade 3</option>
-            <option>Grade 4</option>
-            <option>Grade 5</option>
-            <option>Grade 6</option>
-            <option>Grade 7</option>
-            <option>Grade 8</option>
-            <option>Grade 9</option>
-            <option>Grade 10</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="subject">SUBJECT</label>
-          <select id="subject" required>
-            <option value="" disabled selected>Select subject...</option>
-            <option>English</option>
-            <option>Maths</option>
-            <option>Environmental Studies</option>
-            <option>Science</option>
-            <option>Social Studies</option>
-            <option>Telugu</option>
-            <option>Hindi</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="board">BOARD</label>
-          <select id="board" required>
-            <option value="" disabled selected>Select board...</option>
-            <option>CBSE</option>
-            <option>ICSE</option>
-            <option>SSC (State Board)</option>
-            <option value="__other__">Other (custom)...</option>
-          </select>
-        </div>
-
-        <div class="field" id="stateField" hidden>
-          <label for="state">STATE</label>
-          <select id="state">
-            <option value="" disabled selected>Select state...</option>
-            <option>Telangana</option>
-            <option>Andhra Pradesh</option>
-            <option>Karnataka</option>
-            <option>Tamil Nadu</option>
-            <option>Maharashtra</option>
-            <option>Other</option>
-          </select>
-        </div>
-
-        <div class="field" id="customBoardField" hidden>
-          <label for="customBoard">BOARD NAME</label>
-          <input type="text" id="customBoard" placeholder="e.g. Karnataka State Board">
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">ET</span>
+        <div class="brand-text">
+          <span class="brand-name">EduTeach</span>
+          <span class="brand-sub">Textbook Library</span>
         </div>
       </div>
+    </header>
 
-      <button type="submit" class="submit">Find textbook</button>
-    </form>
+    <main class="layout">
+      <section class="panel lookup-panel">
+        <div class="panel-head">
+          <h1>Find a textbook</h1>
+          <p class="panel-sub">Select a board, grade, and subject to check what's already published.</p>
+        </div>
 
-    <div id="result" class="result" hidden></div>
+        <form id="selectorForm">
+          <div class="grid">
+            <div class="field">
+              <label for="grade">Grade</label>
+              <select id="grade" required>
+                <option value="" disabled selected>Select grade&hellip;</option>
+                <option>Grade 1</option>
+                <option>Grade 2</option>
+                <option>Grade 3</option>
+                <option>Grade 4</option>
+                <option>Grade 5</option>
+                <option>Grade 6</option>
+                <option>Grade 7</option>
+                <option>Grade 8</option>
+                <option>Grade 9</option>
+                <option>Grade 10</option>
+              </select>
+            </div>
 
-    <!-- TEMPORARY, testing-only: lets a running job be stopped mid-book to verify
-         already-published chapters survive a partial run. Remove this button
-         (and its wiring in app.js) once that's confirmed. -->
-    <button type="button" id="stopBtn" class="submit secondary" hidden>Stop ingestion (testing)</button>
+            <div class="field">
+              <label for="subject">Subject</label>
+              <select id="subject" required>
+                <option value="" disabled selected>Select subject&hellip;</option>
+                <option>English</option>
+                <option>Maths</option>
+                <option>Environmental Studies</option>
+                <option>Science</option>
+                <option>Social Studies</option>
+                <option>Telugu</option>
+                <option>Hindi</option>
+              </select>
+            </div>
 
-    <div id="uploadSection" class="upload" hidden>
-      <span class="upload-label">Upload this textbook</span>
-      <p class="upload-hint">This will process the PDF and publish it -- usually takes around 20 minutes for a full book.</p>
-      <input type="file" id="pdfFile" accept="application/pdf">
-      <button type="button" id="uploadBtn" class="submit secondary">Upload &amp; process</button>
-    </div>
-  </main>
+            <div class="field">
+              <label for="board">Board</label>
+              <select id="board" required>
+                <option value="" disabled selected>Select board&hellip;</option>
+                <option>CBSE</option>
+                <option>ICSE</option>
+                <option>SSC (State Board)</option>
+                <option value="__other__">Other (custom)&hellip;</option>
+              </select>
+            </div>
+
+            <div class="field" id="stateField" hidden>
+              <label for="state">State</label>
+              <select id="state">
+                <option value="" disabled selected>Select state&hellip;</option>
+                <option>Telangana</option>
+                <option>Andhra Pradesh</option>
+                <option>Karnataka</option>
+                <option>Tamil Nadu</option>
+                <option>Maharashtra</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            <div class="field" id="customBoardField" hidden>
+              <label for="customBoard">Board name</label>
+              <input type="text" id="customBoard" placeholder="e.g. Karnataka State Board">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Find textbook</button>
+        </form>
+
+        <div id="result" class="result" hidden></div>
+
+        <div id="uploadSection" class="upload" hidden>
+          <div class="upload-head">
+            <span class="upload-title">Upload this textbook</span>
+            <p class="upload-hint">Processes the PDF and publishes it chapter by chapter &mdash; usually around 20 minutes for a full book.</p>
+          </div>
+          <input type="file" id="pdfFile" accept="application/pdf">
+          <button type="button" id="uploadBtn" class="btn btn-accent btn-block">Upload &amp; process</button>
+        </div>
+      </section>
+
+      <section class="panel library-panel">
+        <div class="panel-head">
+          <h2>Library</h2>
+          <p class="panel-sub">Every book listed here is reachable directly via the REST API.</p>
+        </div>
+        <div id="availableNow" class="library-list" hidden></div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span>EduTeach Textbook Library</span>
+      <code id="apiEndpointHint">GET /published/books/{book_id}/chapters</code>
+    </footer>
+  </div>
 
   <script src="app.js"></script>
 </body>
