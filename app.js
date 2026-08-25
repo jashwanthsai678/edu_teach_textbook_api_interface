@@ -79,6 +79,13 @@ const uploadSection = document.getElementById("uploadSection");
 const uploadBtn = document.getElementById("uploadBtn");
 const pdfFileInput = document.getElementById("pdfFile");
 
+// TEMPORARY, testing-only: lets a running job be stopped mid-book to verify
+// already-published chapters survive a partial run instead of waiting for a
+// real crash. Remove stopBtn's wiring below (and the button in index.html)
+// once that's confirmed.
+const stopBtn = document.getElementById("stopBtn");
+let currentJobId = null;
+
 // Set right before showing a "notfound" result, so the upload handler
 // knows what metadata to publish the new book under.
 let pendingUpload = null;
@@ -184,6 +191,9 @@ form.addEventListener("submit", async (e) => {
 });
 
 async function pollJob(jobId) {
+  currentJobId = jobId;
+  stopBtn.hidden = false; // TEMPORARY, testing-only
+
   while (true) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     let job;
@@ -193,6 +203,7 @@ async function pollJob(jobId) {
       job = await resp.json();
     } catch (err) {
       showResult(`Lost track of the job while processing (${err.message}). It may still be running -- try again in a few minutes.`, "error");
+      stopBtn.hidden = true; // TEMPORARY, testing-only
       return;
     }
 
@@ -203,15 +214,46 @@ async function pollJob(jobId) {
         `<a href="${chaptersUrl}" target="_blank" rel="noopener">View chapters &rarr;</a>`,
         "found"
       );
+      stopBtn.hidden = true; // TEMPORARY, testing-only
       return;
     }
     if (job.status === "failed") {
       showResult(`Processing failed: ${job.reason || "unknown error"}`, "error");
+      stopBtn.hidden = true; // TEMPORARY, testing-only
+      return;
+    }
+    // TEMPORARY, testing-only: a "stopped" status only exists while the stop-button
+    // feature is in place -- remove this branch along with everything else marked
+    // TEMPORARY once that's removed.
+    if (job.status === "stopped") {
+      const chaptersUrl = `${API_BASE}/published/books/${job.book_id}/chapters`;
+      showResult(
+        `<strong>Stopped.</strong> ${job.chapter_count || 0} chapter(s) were published before the stop -- ` +
+        `check that they're really in Supabase.<br>` +
+        (job.book_id ? `<a href="${chaptersUrl}" target="_blank" rel="noopener">View chapters &rarr;</a>` : ""),
+        "found"
+      );
+      stopBtn.hidden = true;
       return;
     }
     showResult(`Processing... (${job.stage || "starting"}${job.detail ? " -- " + job.detail : ""})<br>This can take up to ~20 minutes for a full book.`, "loading");
   }
 }
+
+// TEMPORARY, testing-only: remove this whole listener (and stopBtn) once the
+// incremental-publish fix is confirmed working via a deliberate mid-run stop.
+stopBtn.addEventListener("click", async () => {
+  if (!currentJobId) return;
+  stopBtn.disabled = true;
+  try {
+    const resp = await fetch(`${INGEST_API_BASE}/jobs/${currentJobId}/stop`, { method: "POST" });
+    if (!resp.ok) throw new Error(`stop request returned ${resp.status}`);
+  } catch (err) {
+    alert(`Couldn't send stop request: ${err.message}`);
+  } finally {
+    stopBtn.disabled = false;
+  }
+});
 
 uploadBtn.addEventListener("click", async () => {
   const file = pdfFileInput.files[0];

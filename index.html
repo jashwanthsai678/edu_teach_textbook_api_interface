@@ -84,6 +84,11 @@
 
     <div id="result" class="result" hidden></div>
 
+    <!-- TEMPORARY, testing-only: lets a running job be stopped mid-book to verify
+         already-published chapters survive a partial run. Remove this button
+         (and its wiring in app.js) once that's confirmed. -->
+    <button type="button" id="stopBtn" class="submit secondary" hidden>Stop ingestion (testing)</button>
+
     <div id="uploadSection" class="upload" hidden>
       <span class="upload-label">Upload this textbook</span>
       <p class="upload-hint">This will process the PDF and publish it -- usually takes around 20 minutes for a full book.</p>
