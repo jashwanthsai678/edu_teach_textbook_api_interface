@@ -133,6 +133,55 @@ function populateFilterOptions(books) {
   fill(filterSubject, books.map((b) => b.subject));
 }
 
+// Fills the custom-board text field's native autocomplete with every real
+// board name already in the library, so a user typing "Other" sees real
+// options and picks one instead of guessing at spelling -- updates itself
+// automatically as more boards get published, no manual list to maintain.
+function populateBoardSuggestions(books) {
+  const datalist = document.getElementById("boardSuggestions");
+  datalist.innerHTML = "";
+  [...new Set(books.map((b) => b.board))].sort().forEach((board) => {
+    const opt = document.createElement("option");
+    opt.value = board;
+    datalist.appendChild(opt);
+  });
+}
+
+// Levenshtein edit distance -- the minimum number of single-character edits
+// needed to turn one string into the other. Used only to catch genuine
+// typos in the free-text board field (e.g. "Telengana" vs "Telangana"),
+// not to guess at meaning -- see isFuzzyMatch's guards below.
+function editDistance(a, b) {
+  a = a.toLowerCase();
+  b = b.toLowerCase();
+  const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+// Deliberately conservative: real short board names (CBSE/ICSE, 4 letters)
+// are excluded entirely -- edit distance is too coarse a signal at that
+// length and would wrongly treat two genuinely different boards as a typo
+// of each other. Validated against real typo examples (Telengana/Telangana,
+// Karnatka/Karnataka) and real distinct-board examples (CBSE/ICSE,
+// Karnataka/Kerala) before this threshold was chosen.
+function isFuzzyMatch(typed, candidate) {
+  const a = typed.trim().toLowerCase();
+  const b = candidate.trim().toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length < 5 || b.length < 5) return false;
+  const dist = editDistance(a, b);
+  const threshold = Math.max(1, Math.floor(Math.min(a.length, b.length) * 0.2));
+  return dist <= threshold && dist <= 3;
+}
+
 function bookStatus(b) {
   const total = b.total_chapters ?? b.chapter_count ?? 0;
   const published = b.chapters_published ?? total;
@@ -215,6 +264,7 @@ async function loadAvailableNow() {
 
     filterToggle.hidden = false;
     populateFilterOptions(allBooks);
+    populateBoardSuggestions(allBooks);
     renderBooks(applyFilters(allBooks));
   } catch (err) {
     box.className = "library-list error";
@@ -224,22 +274,10 @@ async function loadAvailableNow() {
 
 loadAvailableNow();
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const gradeLabel = document.getElementById("grade").value;
-  const subject = document.getElementById("subject").value;
-  const boardQuery = resolveBoardQuery();
-
-  if (boardSelect.value === "SSC (State Board)" && !stateSelect.value) {
-    showResult("Please select a state.", "error");
-    return;
-  }
-  if (boardSelect.value === "__other__" && !customBoardInput.value.trim()) {
-    showResult("Please enter a board name.", "error");
-    return;
-  }
-
+// Shared by the form submit and by clicking a "Did you mean...?" suggestion
+// (isCustomBoard is passed explicitly rather than re-read from the form,
+// since a suggestion click isn't really "the custom board field" anymore).
+async function performSearch(gradeLabel, subject, boardQuery, isCustomBoard) {
   showResult("Looking this up&hellip; (the API may take up to 30s to wake up if it's been idle)", "loading");
 
   try {
@@ -267,18 +305,70 @@ form.addEventListener("submit", async (e) => {
         `<a href="${chaptersUrl}" target="_blank" rel="noopener">View chapters &rarr;</a>`,
         "found"
       );
-    } else {
-      showResult(
-        `No textbook found yet for <strong>${escapeHtml(gradeLabel)}, ${escapeHtml(subject)}, ${escapeHtml(boardQuery.display)}</strong>.<br>` +
-        `This combination hasn't been processed and published yet.`,
-        "notfound"
-      );
-      pendingUpload = { grade, subject, board: resolveBoardForUpload() };
-      uploadSection.hidden = false;
+      return;
     }
+
+    // No exact match -- if this was a free-typed board name, check whether a
+    // close spelling of a REAL board (that actually has a book for this grade
+    // + subject) exists, rather than immediately declaring it unavailable.
+    if (isCustomBoard) {
+      const candidates = books.filter((b) =>
+        String(b.grade) === String(grade) &&
+        (b.subject || "").toLowerCase() === subject.toLowerCase()
+      );
+      const suggestion = candidates.find((b) => isFuzzyMatch(boardQuery.display, b.board));
+      if (suggestion) {
+        uploadSection.hidden = true;
+        showResult(
+          `No exact match for <strong>${escapeHtml(boardQuery.display)}</strong>.<br>` +
+          `Did you mean <strong>${escapeHtml(suggestion.board)}</strong>?<br>` +
+          `<button type="button" class="btn btn-accent suggest-btn" ` +
+          `data-grade="${escapeHtml(gradeLabel)}" data-subject="${escapeHtml(subject)}" data-board="${escapeHtml(suggestion.board)}">` +
+          `Yes, show this book</button>`,
+          "notfound"
+        );
+        return;
+      }
+    }
+
+    showResult(
+      `No textbook found yet for <strong>${escapeHtml(gradeLabel)}, ${escapeHtml(subject)}, ${escapeHtml(boardQuery.display)}</strong>.<br>` +
+      `This combination hasn't been processed and published yet.`,
+      "notfound"
+    );
+    pendingUpload = { grade, subject, board: resolveBoardForUpload() };
+    uploadSection.hidden = false;
   } catch (err) {
     showResult(`Something went wrong reaching the textbook service: ${err.message}`, "error");
   }
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const gradeLabel = document.getElementById("grade").value;
+  const subject = document.getElementById("subject").value;
+  const boardQuery = resolveBoardQuery();
+
+  if (boardSelect.value === "SSC (State Board)" && !stateSelect.value) {
+    showResult("Please select a state.", "error");
+    return;
+  }
+  if (boardSelect.value === "__other__" && !customBoardInput.value.trim()) {
+    showResult("Please enter a board name.", "error");
+    return;
+  }
+
+  await performSearch(gradeLabel, subject, boardQuery, boardSelect.value === "__other__");
+});
+
+// Event delegation: the "Did you mean...?" button is rendered dynamically
+// inside resultBox's innerHTML, so it can't have a listener attached directly.
+resultBox.addEventListener("click", (e) => {
+  const btn = e.target.closest(".suggest-btn");
+  if (!btn) return;
+  const board = btn.dataset.board;
+  performSearch(btn.dataset.grade, btn.dataset.subject, { display: board, aliases: [board.toLowerCase()] }, false);
 });
 
 async function pollJob(jobId) {
