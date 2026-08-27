@@ -202,6 +202,12 @@ function applyFilters(books) {
   });
 }
 
+// Collapsed by default so the page doesn't open into one long, cluttered scroll of
+// book cards -- resets to collapsed whenever the filtered set changes (a fresh filter
+// or search should start compact again, not stay expanded from a previous view).
+const LIBRARY_COLLAPSED_LIMIT = 4;
+let isLibraryExpanded = false;
+
 function renderBooks(books) {
   const box = document.getElementById("availableNow");
   if (books.length === 0) {
@@ -210,7 +216,8 @@ function renderBooks(books) {
     return;
   }
   box.className = "library-list";
-  box.innerHTML = books.map((b) => {
+  const visible = isLibraryExpanded ? books : books.slice(0, LIBRARY_COLLAPSED_LIMIT);
+  const cardsHtml = visible.map((b) => {
     const { total, published, complete } = bookStatus(b);
     const chaptersUrl = `${API_BASE}/published/books/${b.book_id}/chapters`;
     const chapter1Url = `${chaptersUrl}/1`;
@@ -234,10 +241,24 @@ function renderBooks(books) {
         </div>
       </div>`;
   }).join("");
+
+  const hiddenCount = books.length - visible.length;
+  const toggleHtml = books.length > LIBRARY_COLLAPSED_LIMIT
+    ? `<button type="button" id="libraryToggle" class="library-toggle">
+        ${isLibraryExpanded ? "Show fewer &uarr;" : `Show all ${books.length} books (${hiddenCount} more) &darr;`}
+      </button>`
+    : "";
+  box.innerHTML = cardsHtml + toggleHtml;
 }
 
+document.getElementById("availableNow").addEventListener("click", (e) => {
+  if (!e.target.closest("#libraryToggle")) return;
+  isLibraryExpanded = !isLibraryExpanded;
+  renderBooks(applyFilters(allBooks));
+});
+
 [filterBoard, filterGrade, filterSubject, filterStatus].forEach((el) =>
-  el.addEventListener("change", () => renderBooks(applyFilters(allBooks)))
+  el.addEventListener("change", () => { isLibraryExpanded = false; renderBooks(applyFilters(allBooks)); })
 );
 
 // Styled in-page modal replacing window.confirm()/prompt()/alert() -- native
