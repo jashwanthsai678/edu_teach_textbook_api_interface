@@ -147,6 +147,16 @@ code, .mono {
 }
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }
+  .lookup-panel { position: static; }
+}
+
+.lookup-panel {
+  /* The Library panel next to it grows with every published book and can end up much
+     taller than this short form -- without this, scrolling past the form's own height
+     left it behind entirely, showing blank space next to a still-scrolling Library
+     list. Pinning it keeps the form in view for the whole scroll instead. */
+  position: sticky;
+  top: 1.5rem;
 }
 
 .panel {
@@ -481,6 +491,8 @@ select {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--accent-hover);
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .api-example-link {
