@@ -391,6 +391,19 @@ select {
 }
 .book-links a { color: var(--accent); text-decoration: none; font-weight: 600; }
 .book-links a:hover { text-decoration: underline; }
+.delete-book-btn {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--danger);
+  font-weight: 600;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.delete-book-btn:hover { text-decoration: underline; }
+.delete-book-btn:disabled { color: var(--ink-faint); cursor: not-allowed; text-decoration: none; }
 .book-id-tag {
   font-size: 0.75rem;
   color: var(--ink-faint);

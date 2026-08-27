@@ -229,6 +229,8 @@ function renderBooks(books) {
         <div class="book-links">
           <a href="${chaptersUrl}" target="_blank" rel="noopener">Chapters list &rarr;</a>
           <a href="${chapter1Url}" target="_blank" rel="noopener">Example: chapter 1 &rarr;</a>
+          <button type="button" class="delete-book-btn" data-book-id="${escapeHtml(b.book_id)}"
+            data-book-label="${escapeHtml(b.subject)}, ${escapeHtml(b.board)} &mdash; Grade ${escapeHtml(b.grade)}">Delete</button>
         </div>
       </div>`;
   }).join("");
@@ -237,6 +239,42 @@ function renderBooks(books) {
 [filterBoard, filterGrade, filterSubject, filterStatus].forEach((el) =>
   el.addEventListener("change", () => renderBooks(applyFilters(allBooks)))
 );
+
+// Event delegation: book cards (and their delete buttons) are re-rendered
+// dynamically by renderBooks, so a direct listener on each button wouldn't
+// survive a re-render -- attached once to the container instead.
+document.getElementById("availableNow").addEventListener("click", async (e) => {
+  const btn = e.target.closest(".delete-book-btn");
+  if (!btn) return;
+
+  const bookId = btn.dataset.bookId;
+  const label = btn.dataset.bookLabel;
+  if (!window.confirm(`Delete "${label}" (${bookId})? This removes it from the database and cannot be undone.`)) {
+    return;
+  }
+  const password = window.prompt("Enter the delete password:");
+  if (password === null) return; // cancelled
+
+  btn.disabled = true;
+  btn.textContent = "Deleting…";
+  try {
+    const resp = await fetch(`${INGEST_API_BASE}/books/${encodeURIComponent(bookId)}?password=${encodeURIComponent(password)}`, {
+      method: "DELETE",
+    });
+    if (resp.status === 403) {
+      alert("Incorrect password -- nothing was deleted.");
+      btn.disabled = false;
+      btn.textContent = "Delete";
+      return;
+    }
+    if (!resp.ok) throw new Error(`delete returned ${resp.status}`);
+    await loadAvailableNow();
+  } catch (err) {
+    alert(`Delete failed: ${err.message}`);
+    btn.disabled = false;
+    btn.textContent = "Delete";
+  }
+});
 
 // Shown on page load so a visitor isn't guessing blindly at the form --
 // fetched live, not hardcoded, so it never goes stale as more books get published.
