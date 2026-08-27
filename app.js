@@ -240,39 +240,104 @@ function renderBooks(books) {
   el.addEventListener("change", () => renderBooks(applyFilters(allBooks)))
 );
 
+// Styled in-page modal replacing window.confirm()/prompt()/alert() -- native
+// browser dialogs looked jarring and out of place next to the rest of the UI,
+// and alert() gave no way to let someone just retry a mistyped password
+// without re-triggering the whole delete flow from scratch.
+const deleteModal = document.getElementById("deleteModal");
+const deleteModalLabel = document.getElementById("deleteModalLabel");
+const deleteModalError = document.getElementById("deleteModalError");
+const deletePasswordInput = document.getElementById("deletePassword");
+const deleteModalCancel = document.getElementById("deleteModalCancel");
+const deleteModalConfirm = document.getElementById("deleteModalConfirm");
+
+// Set while the modal is open so Cancel/Escape/backdrop-click can restore the
+// triggering card's button, and Confirm knows which book to actually delete.
+let pendingDelete = null;
+
+function openDeleteModal(bookId, label, triggerBtn) {
+  pendingDelete = { bookId, triggerBtn };
+  deleteModalLabel.textContent = `${label} (${bookId})`;
+  deletePasswordInput.value = "";
+  deleteModalError.hidden = true;
+  deleteModalConfirm.disabled = false;
+  deleteModalConfirm.textContent = "Delete textbook";
+  deleteModal.hidden = false;
+  deletePasswordInput.focus();
+}
+
+function closeDeleteModal() {
+  deleteModal.hidden = true;
+  pendingDelete = null;
+}
+
+function showDeleteError(message) {
+  deleteModalError.textContent = message;
+  deleteModalError.hidden = false;
+}
+
 // Event delegation: book cards (and their delete buttons) are re-rendered
 // dynamically by renderBooks, so a direct listener on each button wouldn't
 // survive a re-render -- attached once to the container instead.
-document.getElementById("availableNow").addEventListener("click", async (e) => {
+document.getElementById("availableNow").addEventListener("click", (e) => {
   const btn = e.target.closest(".delete-book-btn");
   if (!btn) return;
+  openDeleteModal(btn.dataset.bookId, btn.dataset.bookLabel, btn);
+});
 
-  const bookId = btn.dataset.bookId;
-  const label = btn.dataset.bookLabel;
-  if (!window.confirm(`Delete "${label}" (${bookId})? This removes it from the database and cannot be undone.`)) {
+deleteModalCancel.addEventListener("click", closeDeleteModal);
+
+deleteModal.addEventListener("click", (e) => {
+  if (e.target === deleteModal) closeDeleteModal(); // backdrop click
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !deleteModal.hidden) closeDeleteModal();
+});
+
+deletePasswordInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    deleteModalConfirm.click();
+  }
+});
+
+deleteModalConfirm.addEventListener("click", async () => {
+  if (!pendingDelete) return;
+  const password = deletePasswordInput.value;
+  if (!password) {
+    showDeleteError("Enter the delete password.");
+    deletePasswordInput.focus();
     return;
   }
-  const password = window.prompt("Enter the delete password:");
-  if (password === null) return; // cancelled
 
-  btn.disabled = true;
-  btn.textContent = "Deleting…";
+  const { bookId, triggerBtn } = pendingDelete;
+  deleteModalError.hidden = true;
+  deleteModalConfirm.disabled = true;
+  deleteModalConfirm.textContent = "Deleting…";
+  if (triggerBtn) { triggerBtn.disabled = true; triggerBtn.textContent = "Deleting…"; }
+
   try {
     const resp = await fetch(`${INGEST_API_BASE}/books/${encodeURIComponent(bookId)}?password=${encodeURIComponent(password)}`, {
       method: "DELETE",
     });
     if (resp.status === 403) {
-      alert("Incorrect password -- nothing was deleted.");
-      btn.disabled = false;
-      btn.textContent = "Delete";
+      showDeleteError("Incorrect password -- nothing was deleted.");
+      deleteModalConfirm.disabled = false;
+      deleteModalConfirm.textContent = "Delete textbook";
+      if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.textContent = "Delete"; }
+      deletePasswordInput.focus();
+      deletePasswordInput.select();
       return;
     }
-    if (!resp.ok) throw new Error(`delete returned ${resp.status}`);
+    if (!resp.ok) throw new Error(`server returned ${resp.status}`);
+    closeDeleteModal();
     await loadAvailableNow();
   } catch (err) {
-    alert(`Delete failed: ${err.message}`);
-    btn.disabled = false;
-    btn.textContent = "Delete";
+    showDeleteError(`Delete failed: ${err.message}. The service may be waking up (cold start) -- wait a moment and try again.`);
+    deleteModalConfirm.disabled = false;
+    deleteModalConfirm.textContent = "Delete textbook";
+    if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.textContent = "Delete"; }
   }
 });
 

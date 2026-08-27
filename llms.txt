@@ -1,0 +1,17 @@
+# EduTeach Textbook Library
+
+> A free, read-only REST API serving real, already-published Indian state-board textbook content (text and images), for grounding AI-generated teaching materials such as lesson plans, worksheets, and tests. No authentication required.
+
+## API
+
+- Base URL: https://eduteach-textbook-api.onrender.com -- all endpoints below are relative to this
+- List books: `GET /published/books` (optional query filters: `board`, `grade`, `subject`, `language`)
+- List chapters: `GET /published/books/{book_id}/chapters` -- titles and page ranges
+- Get chapter content: `GET /published/books/{book_id}/chapters/{chapter_number}` -- returns noise-free text with `<img id="..."/>` placeholders, and an `images` array. Each image has a `usage` field: `"direct"` (a real file, `url` is set -- use it as-is), `"generate"` (no file; the caption is safe to hand an AI image generator as-is), or `"draw"` (no file; the caption should go to a teacher to reproduce by hand -- it depends on exact text/labels an image generator can't reliably render).
+- Book IDs are deterministic: `{board}_class{grade}_{subject}_{language}`, lowercased, spaces replaced with underscores -- e.g. `ts_scert_class5_maths_en`. Can be constructed directly without calling the list endpoint first if the board/grade/subject/language are already known.
+
+## Reference
+
+- Interactive API docs: https://eduteach-textbook-api.onrender.com/docs
+- OpenAPI spec: https://eduteach-textbook-api.onrender.com/openapi.json
+- Example, a real chapter: https://eduteach-textbook-api.onrender.com/published/books/ts_scert_class5_maths_en/chapters/1

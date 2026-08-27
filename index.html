@@ -142,10 +142,72 @@
       </section>
     </main>
 
+    <section class="panel api-panel">
+      <div class="panel-head">
+        <h2>For developers &amp; AI agents</h2>
+        <p class="panel-sub">Everything in this library is served as a plain, read-only REST API &mdash; no key, no auth, JSON in, JSON out.</p>
+      </div>
+
+      <div class="api-base">
+        <span class="api-base-label">Base URL</span>
+        <code class="mono">https://eduteach-textbook-api.onrender.com</code>
+      </div>
+
+      <div class="api-endpoints">
+        <div class="api-endpoint">
+          <div class="api-endpoint-line"><span class="api-method">GET</span><code class="mono">/published/books</code></div>
+          <p class="api-endpoint-desc">List every published book. Optional query params <code class="mono">board</code>, <code class="mono">grade</code>, <code class="mono">subject</code>, <code class="mono">language</code> filter the results.</p>
+        </div>
+        <div class="api-endpoint">
+          <div class="api-endpoint-line"><span class="api-method">GET</span><code class="mono">/published/books/{book_id}/chapters</code></div>
+          <p class="api-endpoint-desc">List one book's chapters &mdash; titles and page ranges.</p>
+        </div>
+        <div class="api-endpoint">
+          <div class="api-endpoint-line"><span class="api-method">GET</span><code class="mono">/published/books/{book_id}/chapters/{chapter_number}</code></div>
+          <p class="api-endpoint-desc">One chapter's full content: noise-free text with <code class="mono">&lt;img id="..."/&gt;</code> placeholders, plus every image resolved to a fetchable URL (or a caption-only entry when there's no file, tagged <code class="mono">usage: "generate"</code> or <code class="mono">"draw"</code>).</p>
+        </div>
+      </div>
+
+      <div class="api-formula">
+        <span class="api-base-label">Book IDs are deterministic</span>
+        <p class="api-endpoint-desc">If you already know a school's board, grade, subject and language, you can build <code class="mono">book_id</code> directly and skip the list lookup:</p>
+        <code class="mono api-formula-code">{board}_class{grade}_{subject}_{language}</code>
+        <p class="api-endpoint-desc">lowercased, spaces &rarr; underscores &mdash; e.g. <code class="mono">ts_scert_class5_maths_en</code>.</p>
+      </div>
+
+      <div class="api-example">
+        <span class="api-base-label">Try it now</span>
+        <a class="mono api-example-link" href="https://eduteach-textbook-api.onrender.com/published/books/ts_scert_class5_maths_en/chapters/1" target="_blank" rel="noopener">/published/books/ts_scert_class5_maths_en/chapters/1 &rarr;</a>
+      </div>
+
+      <div class="api-more">
+        <a href="https://eduteach-textbook-api.onrender.com/docs" target="_blank" rel="noopener">Full interactive docs (/docs)</a>
+        <a href="https://eduteach-textbook-api.onrender.com/openapi.json" target="_blank" rel="noopener">Machine-readable spec (/openapi.json)</a>
+        <a href="/llms.txt" target="_blank" rel="noopener">llms.txt</a>
+      </div>
+    </section>
+
     <footer class="page-footer">
       <span>EduTeach Textbook Library</span>
       <code id="apiEndpointHint">GET /published/books/{book_id}/chapters</code>
     </footer>
+  </div>
+
+  <div id="deleteModal" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+      <h3 id="deleteModalTitle">Delete this textbook?</h3>
+      <p class="modal-book-label" id="deleteModalLabel"></p>
+      <p class="modal-warning">This removes it from the database and cannot be undone.</p>
+      <div class="field">
+        <label for="deletePassword">Delete password</label>
+        <input type="password" id="deletePassword" autocomplete="off">
+      </div>
+      <div id="deleteModalError" class="modal-error" hidden></div>
+      <div class="modal-actions">
+        <button type="button" id="deleteModalCancel" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="deleteModalConfirm" class="btn btn-danger">Delete textbook</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
